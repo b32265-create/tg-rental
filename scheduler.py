@@ -138,7 +138,7 @@ async def check_pending_payments():
             amount = payment["amount_inr"]
             
             try:
-                is_paid, payment_id = is_payment_link_paid(link_id)
+                is_paid, payment_id = await asyncio.to_thread(is_payment_link_paid, link_id)
                 if is_paid:
                     logger.info(f"Background verify: Payment {link_id} is paid. Updating wallet for user {user_id}.")
                     await confirm_payment(link_id, payment_id)

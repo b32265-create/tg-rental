@@ -1,0 +1,29 @@
+# RentBot — .gitignore
+# Railway pe yeh files upload nahi hongi
+
+# Environment (SECRETS - kabhi share mat karo!)
+.env
+
+# Database (Railway pe fresh start hoga)
+*.db
+*.db-shm
+*.db-wal
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Pyrogram sessions
+*.session
+*.session-journal
+
+# Logs
+*.log
+
+# Virtual environments
+venv/
+env/
+.venv/

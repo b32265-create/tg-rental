@@ -146,9 +146,9 @@ async def add_account_phone(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
 
-    phone = message.text.strip()
-    if not phone.startswith("+"):
-        await message.answer("❌ Phone number + se start karo. Example: <code>+919876543210</code>", parse_mode="HTML")
+    phone = message.text.strip().replace(" ", "").replace("-", "")
+    if not phone.startswith("+") or not phone[1:].isdigit():
+        await message.answer("❌ Phone number + se start karo aur sirf numbers hone chahiye. Example: <code>+919876543210</code>", parse_mode="HTML")
         return
 
     await message.answer(f"📤 OTP bhej raha hoon <code>{phone}</code> pe... ⏳", parse_mode="HTML")

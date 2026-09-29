@@ -83,28 +83,23 @@ async def check_expired_rentals():
 
 async def send_expiry_warnings():
     """Send warning to users whose rental expires in ~30 minutes."""
-    from database import get_expired_rentals
-    import aiosqlite
-    from config import DB_PATH
+    from database import pool
 
     try:
         now = datetime.utcnow()
         warning_threshold = now + timedelta(minutes=30)
 
-        async with aiosqlite.connect(DB_PATH) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
+        async with pool.acquire() as db:
+            rows = await db.fetch(
                 """SELECT r.*, a.phone_number FROM rentals r
                    JOIN accounts a ON r.account_id = a.id
                    WHERE r.is_active=1
-                     AND r.expires_at > ?
-                     AND r.expires_at <= ?""",
-                (
-                    now.strftime("%Y-%m-%d %H:%M:%S"),
-                    warning_threshold.strftime("%Y-%m-%d %H:%M:%S")
-                )
+                     AND r.expires_at > $1
+                     AND r.expires_at <= $2""",
+                now.strftime("%Y-%m-%d %H:%M:%S"),
+                warning_threshold.strftime("%Y-%m-%d %H:%M:%S")
             )
-            soon_expiring = [dict(r) for r in await cursor.fetchall()]
+            soon_expiring = [dict(r) for r in rows]
 
         for rental in soon_expiring:
             if rental["id"] not in _warned_rentals and _bot:

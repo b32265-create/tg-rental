@@ -1,7 +1,7 @@
 aiogram==3.7.0
 pyrogram==2.0.106
 TgCrypto
-aiosqlite==0.20.0
+asyncpg==0.29.0
 apscheduler==3.10.4
 python-dotenv==1.0.1
 pytz==2024.1

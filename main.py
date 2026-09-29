@@ -4,6 +4,7 @@ Initializes bot, database, scheduler, and starts polling
 """
 import asyncio
 import logging
+from aiohttp import web
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
@@ -75,6 +76,9 @@ async def on_shutdown(bot: Bot):
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
+async def health_check(request):
+    return web.Response(text="Bot is running!")
+
 async def main():
     bot = Bot(
         token=BOT_TOKEN,
@@ -91,7 +95,20 @@ async def main():
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
-    logger.info("✅ Bot configured. Starting polling...")
+    logger.info("✅ Bot configured. Starting polling and web server...")
+    
+    # Start Dummy Web Server
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    import os
+    port = int(os.environ.get('PORT', 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logger.info(f"🌐 Dummy web server running on port {port}")
+
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
 

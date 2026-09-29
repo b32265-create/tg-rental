@@ -29,7 +29,7 @@ RENT_DURATION: int = int(os.getenv("RENT_DURATION", "86100"))   # 23h 55min
 REFERRAL_BONUS: float = float(os.getenv("REFERRAL_BONUS", "20"))
 
 # ── Database ─────────────────────────────────────────────────
-DB_PATH: str = os.getenv("DB_PATH", "rentbot.db")
+DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
 # ── Timezone ─────────────────────────────────────────────────
 TIMEZONE: str = os.getenv("TIMEZONE", "Asia/Kolkata")

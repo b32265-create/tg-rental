@@ -136,7 +136,7 @@ def confirm_kb(action: str, extra: str = "") -> InlineKeyboardMarkup:
 
 def rental_active_kb(rental_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="✉️ Get OTP", callback_data=f"rental_otp:{rental_id}")
+    builder.button(text="✉️ Get / Refresh OTP", callback_data=f"rental_otp:{rental_id}")
     builder.button(text="⏱️ Time Remaining", callback_data=f"rental_time:{rental_id}")
     builder.button(text="🔄 Renew Rental", callback_data=f"rental_renew:{rental_id}")
     builder.adjust(1, 2)

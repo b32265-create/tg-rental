@@ -183,8 +183,7 @@ async def country_selected(cb: CallbackQuery, state: FSMContext):
     else:
         # Create payment link
         try:
-            link = await asyncio.to_thread(
-                create_payment_link,
+            link = await create_payment_link(
                 amount_inr=price,
                 description=f"Rent {country['name']}",
                 user_id=cb.from_user.id,
@@ -252,7 +251,7 @@ async def verify_payment_cb(cb: CallbackQuery, state: FSMContext):
 
     await cb.answer("⏳ Checking payment...", show_alert=False)
     
-    is_paid, payment_id = await asyncio.to_thread(is_payment_link_paid, link_id)
+    is_paid, payment_id = await is_payment_link_paid(link_id)
     if is_paid:
         await confirm_payment(link_id, payment_id)
         
@@ -433,8 +432,7 @@ async def wallet_add_amount(message: Message, state: FSMContext):
 
     # Create Razorpay payment link
     try:
-        link = await asyncio.to_thread(
-            create_payment_link,
+        link = await create_payment_link(
             amount_inr=amount,
             description="Wallet Topup",
             user_id=message.from_user.id,

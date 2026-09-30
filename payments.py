@@ -1,27 +1,26 @@
 """
 payments.py — Razorpay integration for Rent Bot
 Uses Razorpay Payment Links API for proper shareable payment links
+Refactored to use aiohttp for async non-blocking operations.
 """
-import hmac
-import hashlib
 import logging
-import requests
+import aiohttp
+from aiohttp import BasicAuth
 
 from config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 
 logger = logging.getLogger(__name__)
 RAZORPAY_API = "https://api.razorpay.com/v1"
 
-
 def _auth():
-    return (RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)
+    return BasicAuth(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CREATE PAYMENT LINK (proper shareable link)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def create_payment_link(amount_inr: float, description: str, user_id: int, purpose: str = "rent") -> dict:
+async def create_payment_link(amount_inr: float, description: str, user_id: int, purpose: str = "rent") -> dict:
     """
     Creates a Razorpay Payment Link — returns proper shareable URL.
     Returns dict with 'id', 'short_url', 'amount'.
@@ -43,27 +42,29 @@ def create_payment_link(amount_inr: float, description: str, user_id: int, purpo
         "callback_url": "",
         "callback_method": "get"
     }
-    try:
-        resp = requests.post(
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
             f"{RAZORPAY_API}/payment_links",
             json=payload,
             auth=_auth(),
             timeout=10
-        )
-        resp.raise_for_status()
-        link = resp.json()
-        logger.info(f"Payment link created: {link['id']} — ₹{amount_inr} — {link.get('short_url','')}")
-        return link
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Payment link creation failed: {e} | Response: {e.response.text if hasattr(e, 'response') and e.response else ''}")
-        raise Exception(f"❌ Payment gateway error: {e}")
+        ) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                logger.error(f"Payment link creation failed | Response: {text}")
+                raise Exception(f"❌ Payment gateway error")
+                
+            link = await resp.json()
+            logger.info(f"Payment link created: {link.get('id')} — ₹{amount_inr} — {link.get('short_url','')}")
+            return link
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CREATE ORDER (for signature verification after payment)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def create_order(amount_inr: float, receipt: str, notes: dict = None) -> dict:
+async def create_order(amount_inr: float, receipt: str, notes: dict = None) -> dict:
     """Create a Razorpay Order (used for backend verification)."""
     payload = {
         "amount": int(amount_inr * 100),
@@ -71,56 +72,73 @@ def create_order(amount_inr: float, receipt: str, notes: dict = None) -> dict:
         "receipt": receipt,
         "notes": notes or {}
     }
-    try:
-        resp = requests.post(f"{RAZORPAY_API}/orders", json=payload, auth=_auth(), timeout=10)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Order creation failed: {e}")
-        raise Exception(f"Payment gateway error: {e}")
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{RAZORPAY_API}/orders",
+            json=payload,
+            auth=_auth(),
+            timeout=10
+        ) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                logger.error(f"Order creation failed | Response: {text}")
+                raise Exception("Payment gateway error")
+                
+            return await resp.json()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FETCH PAYMENT LINK STATUS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_payment_link(link_id: str) -> dict:
+async def fetch_payment_link(link_id: str) -> dict:
     """Fetch payment link details to check if it's been paid."""
-    try:
-        resp = requests.get(f"{RAZORPAY_API}/payment_links/{link_id}", auth=_auth(), timeout=10)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Fetch payment link error: {e}")
-        raise
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{RAZORPAY_API}/payment_links/{link_id}",
+            auth=_auth(),
+            timeout=10
+        ) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                logger.error(f"Fetch payment link error | Response: {text}")
+                raise Exception("Fetch payment link error")
+                
+            return await resp.json()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FETCH PAYMENT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_payment(payment_id: str) -> dict:
+async def fetch_payment(payment_id: str) -> dict:
     """Fetch individual payment details."""
-    try:
-        resp = requests.get(f"{RAZORPAY_API}/payments/{payment_id}", auth=_auth(), timeout=10)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Fetch payment error: {e}")
-        raise
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{RAZORPAY_API}/payments/{payment_id}",
+            auth=_auth(),
+            timeout=10
+        ) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                logger.error(f"Fetch payment error | Response: {text}")
+                raise Exception("Fetch payment error")
+                
+            return await resp.json()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CHECK IF PAYMENT LINK IS PAID
 # ─────────────────────────────────────────────────────────────────────────────
 
-def is_payment_link_paid(link_id: str) -> tuple[bool, str]:
+async def is_payment_link_paid(link_id: str) -> tuple[bool, str]:
     """
     Returns (is_paid, payment_id).
     Checks Razorpay if the payment link has been paid.
     """
     try:
-        link = fetch_payment_link(link_id)
+        link = await fetch_payment_link(link_id)
         status = link.get("status", "")
         if status == "paid":
             # Get payment ID from payments on this link
@@ -143,22 +161,24 @@ def is_payment_link_paid(link_id: str) -> tuple[bool, str]:
 # ISSUE REFUND
 # ─────────────────────────────────────────────────────────────────────────────
 
-def issue_refund(payment_id: str, amount_inr: float = None) -> dict:
+async def issue_refund(payment_id: str, amount_inr: float = None) -> dict:
     """Issue full or partial refund."""
-    try:
-        payload = {}
-        if amount_inr:
-            payload["amount"] = int(amount_inr * 100)
-        resp = requests.post(
+    payload = {}
+    if amount_inr:
+        payload["amount"] = int(amount_inr * 100)
+        
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
             f"{RAZORPAY_API}/payments/{payment_id}/refund",
             json=payload,
             auth=_auth(),
             timeout=10
-        )
-        resp.raise_for_status()
-        refund = resp.json()
-        logger.info(f"Refund issued: {refund.get('id')} for payment {payment_id}")
-        return refund
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Refund error: {e}")
-        raise
+        ) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                logger.error(f"Refund error | Response: {text}")
+                raise Exception("Refund error")
+                
+            refund = await resp.json()
+            logger.info(f"Refund issued: {refund.get('id')} for payment {payment_id}")
+            return refund

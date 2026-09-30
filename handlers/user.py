@@ -343,7 +343,6 @@ async def _complete_rental(
 @router.message(F.text == "📦 My Rentals")
 @router.message(Command("myrentals"))
 async def my_rentals(message: Message):
-    active = await get_active_rental_for_user(message.from_user.id)
     history = await get_user_rental_history(message.from_user.id)
 
     if not history:
@@ -354,18 +353,30 @@ async def my_rentals(message: Message):
         )
         return
 
-    text = "📦 <b>Aapki Rental History:</b>\n\n"
+    active_rentals = [r for r in history if r.get("is_active")]
+    inactive_rentals = [r for r in history if not r.get("is_active")]
 
-    for r in history:
-        status = "🟢 ACTIVE" if r.get("is_active") else "🔴 Ended"
-        text += (
-            f"{r.get('flag_emoji','🌍')} <b>{r.get('country_name','?')}</b> {status}\n"
-            f"📱 <code>{r['phone_number']}</code>\n"
-            f"⏰ Started: {r['started_at'][:16]}\n"
-            f"─────────────────\n"
-        )
-
-    await message.answer(text, parse_mode="HTML")
+    if active_rentals:
+        await message.answer("🟢 <b>Aapke Active Rentals:</b>", parse_mode="HTML")
+        for r in active_rentals:
+            text = (
+                f"{r.get('flag_emoji','🌍')} <b>{r.get('country_name','?')}</b>\n"
+                f"📱 Number: <code>{r['phone_number']}</code>\n"
+                f"🔑 2FA: <code>{r.get('two_fa_password', 'N/A')}</code>\n"
+                f"⏰ Started: {r['started_at'][:16]}\n"
+            )
+            await message.answer(text, parse_mode="HTML", reply_markup=rental_active_kb(r['id']))
+            
+    if inactive_rentals:
+        text = "🔴 <b>Past Rentals (Ended):</b>\n\n"
+        for r in inactive_rentals:
+            text += (
+                f"{r.get('flag_emoji','🌍')} <b>{r.get('country_name','?')}</b>\n"
+                f"📱 <code>{r['phone_number']}</code>\n"
+                f"⏰ Started: {r['started_at'][:16]}\n"
+                f"─────────────────\n"
+            )
+        await message.answer(text, parse_mode="HTML")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

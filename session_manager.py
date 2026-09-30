@@ -197,6 +197,48 @@ async def terminate_all_sessions(session_str: str) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GET LATEST OTP (for users logging into rented accounts)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def get_latest_otp(session_str: str) -> str:
+    """Connects to the session and fetches the latest Telegram login code from 777000."""
+    import re
+    from datetime import datetime, timedelta
+    
+    client = Client(
+        name="fetch_otp",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        session_string=session_str,
+        in_memory=True
+    )
+    
+    try:
+        await client.start()
+        # Fetch the last 5 messages from Telegram notifications (777000)
+        otp = None
+        async for msg in client.get_chat_history(777000, limit=5):
+            # Login codes are usually 5 digits and valid for a short time
+            if msg.date < datetime.utcnow() - timedelta(minutes=15):
+                continue
+            
+            # Match 5 digit code like: "Login code: 12345"
+            match = re.search(r'\b(\d{5})\b', msg.text)
+            if match:
+                otp = match.group(1)
+                break
+                
+        return otp
+    except Exception as e:
+        logger.error(f"Fetch OTP error: {e}")
+        return None
+    finally:
+        try:
+            await client.stop()
+        except Exception:
+            pass
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GET SESSION STRING (for admin adding account)
 # ─────────────────────────────────────────────────────────────────────────────
 

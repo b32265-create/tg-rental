@@ -21,10 +21,10 @@ from database import (
     get_user_by_referral, get_countries, get_available_accounts,
     get_country, create_rental, get_active_rental_for_user,
     get_user_rental_history, create_payment, confirm_payment,
-    get_payment_by_order
+    get_payment_by_order, get_account
 )
 from payments import create_payment_link, is_payment_link_paid
-from session_manager import change_2fa_password, generate_2fa_password
+from session_manager import change_2fa_password, generate_2fa_password, get_latest_otp
 from keyboards import (
     main_menu_kb, countries_kb, payment_kb, wallet_pay_kb,
     rental_active_kb, back_kb
@@ -393,6 +393,31 @@ async def rental_time_cb(cb: CallbackQuery):
         f"⏱️ Time Remaining: {hours}h {minutes}m {seconds}s",
         show_alert=True
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RENTAL GET OTP
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("rental_otp:"))
+async def rental_otp_cb(cb: CallbackQuery):
+    active = await get_active_rental_for_user(cb.from_user.id)
+    if not active:
+        await cb.answer("❌ Koi active rental nahi hai!", show_alert=True)
+        return
+
+    await cb.answer("⏳ Fetching latest OTP... Please wait", show_alert=False)
+    
+    account = await get_account(active["account_id"])
+    if not account or not account.get("session_str"):
+        await cb.message.answer("❌ Account session error. Please contact admin.")
+        return
+        
+    otp = await get_latest_otp(account["session_str"])
+    if otp:
+        await cb.message.answer(f"🔐 <b>Latest Telegram Code:</b> <code>{otp}</code>\n\n<i>Yaha tap (click) karke code copy karein.</i>", parse_mode="HTML")
+    else:
+        await cb.message.answer("❌ Abhi tak koi OTP message nahi aaya Telegram ki taraf se.\nKripya apne app mein resend karein ya 1-2 minute wait karke dobara 'Get OTP' dabayein.", parse_mode="HTML")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

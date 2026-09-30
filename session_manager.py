@@ -118,15 +118,25 @@ async def change_2fa_password(session_str: str, new_password: str) -> bool:
     )
     try:
         await client.start()
-        await client.change_cloud_password(
-            current_password=None,   # Will try with no password first
-            new_password=new_password,
-            hint="Auto-changed by RentBot"
-        )
-        logger.info("2FA password changed successfully")
-        return True
+        try:
+            # Most likely the account doesn't have a 2FA password yet
+            await client.enable_cloud_password(
+                password=new_password,
+                hint="Auto-changed by RentBot"
+            )
+            logger.info("2FA password enabled successfully")
+            return True
+        except Exception as e:
+            logger.warning(f"enable_cloud_password failed ({e}), trying change_cloud_password...")
+            await client.change_cloud_password(
+                current_password="",  # Try empty string or None, though it will fail if it's a real password
+                new_password=new_password,
+                hint="Auto-changed by RentBot"
+            )
+            logger.info("2FA password changed successfully")
+            return True
     except PasswordHashInvalid:
-        logger.warning("2FA change failed — wrong current password")
+        logger.warning("2FA change failed — wrong current password (already has 2FA)")
         return False
     except Exception as e:
         logger.error(f"2FA change error: {e}")
